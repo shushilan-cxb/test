@@ -245,6 +245,34 @@
             color: #764ba2;
         }
 
+        .offline-indicator {
+            background: linear-gradient(45deg, #ff7675, #fd79a8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 500;
+            animation: pulse 2s infinite;
+        }
+
+        .online-indicator {
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .positioning-method {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -290,6 +318,15 @@
 
         <div class="options">
             <h3 style="margin-bottom: 15px; color: #333;">📊 Capture Options</h3>
+            
+            <div id="networkStatus" class="offline-indicator" style="display: none;">
+                🔴 Offline Mode - GPS Only
+            </div>
+            
+            <div id="positioningMethod" class="positioning-method" style="display: none;">
+                📡 Positioning Method: <span id="methodType">Unknown</span>
+            </div>
+            
             <div class="option-group">
                 <label class="option-label">
                     <input type="checkbox" id="highAccuracy" checked>
@@ -299,13 +336,19 @@
             <div class="option-group">
                 <label class="option-label">
                     <input type="checkbox" id="enableTimeout">
-                    ⏱️ 15 Second Timeout
+                    ⏱️ 30 Second Timeout (Extended for GPS)
                 </label>
             </div>
             <div class="option-group">
                 <label class="option-label">
                     <input type="checkbox" id="maxAge">
-                    🔄 Accept Cached Location (60s)
+                    🔄 Accept Cached Location (300s)
+                </label>
+            </div>
+            <div class="option-group">
+                <label class="option-label">
+                    <input type="checkbox" id="offlineMode">
+                    📱 Force Offline Mode (GPS Only)
                 </label>
             </div>
         </div>
@@ -397,9 +440,12 @@
         class GeolocationCapture {
             constructor() {
                 this.watchId = null;
+                this.isOnline = navigator.onLine;
                 this.initializeElements();
                 this.bindEvents();
                 this.checkGeolocationSupport();
+                this.setupOfflineDetection();
+                this.updateNetworkStatus();
             }
 
             initializeElements() {
@@ -416,6 +462,12 @@
                     highAccuracy: document.getElementById('highAccuracy'),
                     enableTimeout: document.getElementById('enableTimeout'),
                     maxAge: document.getElementById('maxAge'),
+                    offlineMode: document.getElementById('offlineMode'),
+                    
+                    // Status indicators
+                    networkStatus: document.getElementById('networkStatus'),
+                    positioningMethod: document.getElementById('positioningMethod'),
+                    methodType: document.getElementById('methodType'),
                     
                     // Location data elements
                     latitude: document.getElementById('latitude'),
@@ -435,6 +487,36 @@
                 this.elements.getCurrentBtn.addEventListener('click', () => this.getCurrentLocation());
                 this.elements.watchBtn.addEventListener('click', () => this.startWatching());
                 this.elements.stopBtn.addEventListener('click', () => this.stopWatching());
+                this.elements.offlineMode.addEventListener('change', () => this.updateNetworkStatus());
+            }
+
+            setupOfflineDetection() {
+                window.addEventListener('online', () => {
+                    this.isOnline = true;
+                    this.updateNetworkStatus();
+                });
+                
+                window.addEventListener('offline', () => {
+                    this.isOnline = false;
+                    this.updateNetworkStatus();
+                });
+            }
+
+            updateNetworkStatus() {
+                const isOfflineForced = this.elements.offlineMode.checked;
+                const effectivelyOffline = !this.isOnline || isOfflineForced;
+                
+                if (effectivelyOffline) {
+                    this.elements.networkStatus.textContent = isOfflineForced 
+                        ? '📱 Forced Offline Mode - GPS Only' 
+                        : '🔴 Offline - GPS Only Available';
+                    this.elements.networkStatus.className = 'offline-indicator';
+                    this.elements.networkStatus.style.display = 'block';
+                } else {
+                    this.elements.networkStatus.textContent = '🟢 Online - GPS + WiFi + Cell Tower';
+                    this.elements.networkStatus.className = 'online-indicator';
+                    this.elements.networkStatus.style.display = 'block';
+                }
             }
 
             checkGeolocationSupport() {
@@ -443,15 +525,21 @@
                     this.elements.getCurrentBtn.disabled = true;
                     this.elements.watchBtn.disabled = true;
                 } else {
-                    this.showStatus('Geolocation is supported. Ready to capture location.', 'success');
+                    const supportMsg = this.isOnline || this.elements.offlineMode.checked
+                        ? 'Geolocation ready. GPS satellites available offline.'
+                        : 'Geolocation ready. GPS + Network positioning available.';
+                    this.showStatus(supportMsg, 'success');
                 }
             }
 
             getGeolocationOptions() {
+                const isOfflineForced = this.elements.offlineMode.checked;
+                const effectivelyOffline = !this.isOnline || isOfflineForced;
+                
                 return {
                     enableHighAccuracy: this.elements.highAccuracy.checked,
-                    timeout: this.elements.enableTimeout.checked ? 15000 : undefined,
-                    maximumAge: this.elements.maxAge.checked ? 60000 : 0
+                    timeout: this.elements.enableTimeout.checked ? 30000 : (effectivelyOffline ? 60000 : 15000),
+                    maximumAge: this.elements.maxAge.checked ? 300000 : (effectivelyOffline ? 120000 : 0)
                 };
             }
 
@@ -474,7 +562,14 @@
             }
 
             getCurrentLocation() {
-                this.showStatus('🔍 Acquiring location using GPS, WiFi, and Cell Tower triangulation...', 'loading');
+                const isOfflineForced = this.elements.offlineMode.checked;
+                const effectivelyOffline = !this.isOnline || isOfflineForced;
+                
+                const statusMsg = effectivelyOffline 
+                    ? '🛰️ Acquiring GPS position (offline mode - may take longer)...'
+                    : '🔍 Acquiring location using GPS, WiFi, and Cell Tower triangulation...';
+                    
+                this.showStatus(statusMsg, 'loading');
                 this.showProgress();
                 
                 const options = this.getGeolocationOptions();
@@ -518,9 +613,30 @@
                 const coords = position.coords;
                 const timestamp = new Date(position.timestamp);
                 
+                // Determine positioning method based on accuracy and network status
+                this.updatePositioningMethod(coords.accuracy);
+                
                 this.showStatus('✅ Location captured successfully!', 'success');
                 this.displayLocationData(coords, timestamp);
                 this.elements.locationInfo.style.display = 'block';
+            }
+
+            updatePositioningMethod(accuracy) {
+                const isOfflineForced = this.elements.offlineMode.checked;
+                const effectivelyOffline = !this.isOnline || isOfflineForced;
+                
+                let method;
+                if (effectivelyOffline) {
+                    method = accuracy <= 10 ? 'GPS (High Precision)' : 'GPS (Standard)';
+                } else {
+                    if (accuracy <= 5) method = 'GPS + Network Assist';
+                    else if (accuracy <= 20) method = 'GPS Primary';
+                    else if (accuracy <= 100) method = 'WiFi/Cell Triangulation';
+                    else method = 'Network Approximation';
+                }
+                
+                this.elements.methodType.textContent = method;
+                this.elements.positioningMethod.style.display = 'block';
             }
 
             handleError(error) {
@@ -531,10 +647,14 @@
                         errorMessage = "❌ Location access denied. Please allow location permissions.";
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        errorMessage = "❌ Location information unavailable. GPS/WiFi/Cell signal may be weak.";
+                        const isOfflineForced = this.elements.offlineMode.checked;
+                        const effectivelyOffline = !this.isOnline || isOfflineForced;
+                        errorMessage = effectivelyOffline 
+                            ? "❌ GPS signal unavailable. Try moving to an open area with clear sky view."
+                            : "❌ Location unavailable. GPS/WiFi/Cell signal may be weak.";
                         break;
                     case error.TIMEOUT:
-                        errorMessage = "❌ Location request timed out. Try again or disable timeout option.";
+                        errorMessage = "❌ Location request timed out. GPS acquisition can take 30-60s outdoors.";
                         break;
                     default:
                         errorMessage = "❌ An unknown error occurred while retrieving location.";
@@ -590,9 +710,38 @@
                 // Timestamp
                 this.elements.timestamp.textContent = timestamp.toLocaleString();
                 
-                // Google Maps link
-                const mapsUrl = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}&z=18`;
-                this.elements.mapLink.href = mapsUrl;
+                // Google Maps link (only if online)
+                const isOfflineForced = this.elements.offlineMode.checked;
+                const effectivelyOffline = !this.isOnline || isOfflineForced;
+                
+                if (!effectivelyOffline) {
+                    const mapsUrl = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}&z=18`;
+                    this.elements.mapLink.href = mapsUrl;
+                    this.elements.mapLink.style.display = 'inline-block';
+                    this.elements.mapLink.textContent = '🗺️ View on Google Maps';
+                } else {
+                    this.elements.mapLink.style.display = 'none';
+                    
+                    // Add offline coordinates display
+                    const coordsText = document.createElement('div');
+                    coordsText.style.textAlign = 'center';
+                    coordsText.style.marginTop = '15px';
+                    coordsText.style.fontFamily = 'monospace';
+                    coordsText.style.background = 'rgba(102, 126, 234, 0.1)';
+                    coordsText.style.padding = '10px';
+                    coordsText.style.borderRadius = '8px';
+                    coordsText.innerHTML = `
+                        <strong>📍 Coordinates for offline use:</strong><br>
+                        ${coords.latitude.toFixed(8)}, ${coords.longitude.toFixed(8)}
+                    `;
+                    
+                    // Remove existing offline coordinates if any
+                    const existing = this.elements.locationInfo.querySelector('.offline-coords');
+                    if (existing) existing.remove();
+                    
+                    coordsText.className = 'offline-coords';
+                    this.elements.locationInfo.appendChild(coordsText);
+                }
             }
 
             showStatus(message, type) {
