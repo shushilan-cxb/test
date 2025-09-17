@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Geolocation Capture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.3);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 10px 25px rgba(245, 87, 108, 0.4);
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status.loading {
+            background: linear-gradient(45deg, #ffeaa7, #fab1a0);
+            color: #d63031;
+        }
+
+        .status.success {
+            background: linear-gradient(45deg, #00b894, #00cec9);
+            color: white;
+        }
+
+        .status.error {
+            background: linear-gradient(45deg, #e17055, #d63031);
+            color: white;
+        }
+
+        .location-info {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: left;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .location-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .location-item:last-child {
+            border-bottom: none;
+        }
+
+        .location-label {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+
+        .location-value {
+            color: #667eea;
+            font-weight: 500;
+            font-family: 'Courier New', monospace;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .accuracy-indicator {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+
+        .accuracy-high {
+            background: #00b894;
+            color: white;
+        }
+
+        .accuracy-medium {
+            background: #fdcb6e;
+            color: #333;
+        }
+
+        .accuracy-low {
+            background: #e17055;
+            color: white;
+        }
+
+        .options {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .option-group {
+            margin: 15px 0;
+        }
+
+        .option-label {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .option-label:hover {
+            color: #667eea;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.3);
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .map-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .map-link:hover {
+            color: #764ba2;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .btn {
+                display: block;
+                width: 100%;
+                margin: 10px 0;
+            }
+
+            .location-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 GeoCapture Pro</h1>
+            <p>Advanced location tracking with GPS, WiFi & Cell Tower triangulation</p>
+        </div>
+
+        <div class="controls">
+            <button id="getCurrentLocation" class="btn">
+                📍 Get Current Location
+            </button>
+            <button id="watchLocation" class="btn btn-secondary">
+                🎯 Start Tracking
+            </button>
+            <button id="stopWatching" class="btn" style="display: none;">
+                ⏹️ Stop Tracking
+            </button>
+        </div>
+
+        <div class="options">
+            <h3 style="margin-bottom: 15px; color: #333;">📊 Capture Options</h3>
+            <div class="option-group">
+                <label class="option-label">
+                    <input type="checkbox" id="highAccuracy" checked>
+                    🎯 High Accuracy (GPS Priority)
+                </label>
+            </div>
+            <div class="option-group">
+                <label class="option-label">
+                    <input type="checkbox" id="enableTimeout">
+                    ⏱️ 15 Second Timeout
+                </label>
+            </div>
+            <div class="option-group">
+                <label class="option-label">
+                    <input type="checkbox" id="maxAge">
+                    🔄 Accept Cached Location (60s)
+                </label>
+            </div>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+        <div class="progress-bar" id="progressBar" style="display: none;">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div id="locationInfo" class="location-info" style="display: none;">
+            <h3 style="margin-bottom: 20px; color: #333; text-align: center;">📍 Location Data</h3>
+            
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">🌐</span>
+                    Latitude
+                </span>
+                <span class="location-value" id="latitude">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">🌐</span>
+                    Longitude
+                </span>
+                <span class="location-value" id="longitude">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">🎯</span>
+                    Accuracy
+                </span>
+                <span class="location-value">
+                    <span id="accuracy">-</span>
+                    <span id="accuracyIndicator" class="accuracy-indicator">-</span>
+                </span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">⛰️</span>
+                    Altitude
+                </span>
+                <span class="location-value" id="altitude">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">📏</span>
+                    Altitude Accuracy
+                </span>
+                <span class="location-value" id="altitudeAccuracy">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">🧭</span>
+                    Heading
+                </span>
+                <span class="location-value" id="heading">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">⚡</span>
+                    Speed
+                </span>
+                <span class="location-value" id="speed">-</span>
+            </div>
+
+            <div class="location-item">
+                <span class="location-label">
+                    <span class="icon">🕐</span>
+                    Timestamp
+                </span>
+                <span class="location-value" id="timestamp">-</span>
+            </div>
+
+            <div style="text-align: center;">
+                <a id="mapLink" class="map-link" target="_blank" href="#">
+                    🗺️ View on Google Maps
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class GeolocationCapture {
+            constructor() {
+                this.watchId = null;
+                this.initializeElements();
+                this.bindEvents();
+                this.checkGeolocationSupport();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    getCurrentBtn: document.getElementById('getCurrentLocation'),
+                    watchBtn: document.getElementById('watchLocation'),
+                    stopBtn: document.getElementById('stopWatching'),
+                    status: document.getElementById('status'),
+                    locationInfo: document.getElementById('locationInfo'),
+                    progressBar: document.getElementById('progressBar'),
+                    progressFill: document.getElementById('progressFill'),
+                    
+                    // Options
+                    highAccuracy: document.getElementById('highAccuracy'),
+                    enableTimeout: document.getElementById('enableTimeout'),
+                    maxAge: document.getElementById('maxAge'),
+                    
+                    // Location data elements
+                    latitude: document.getElementById('latitude'),
+                    longitude: document.getElementById('longitude'),
+                    accuracy: document.getElementById('accuracy'),
+                    accuracyIndicator: document.getElementById('accuracyIndicator'),
+                    altitude: document.getElementById('altitude'),
+                    altitudeAccuracy: document.getElementById('altitudeAccuracy'),
+                    heading: document.getElementById('heading'),
+                    speed: document.getElementById('speed'),
+                    timestamp: document.getElementById('timestamp'),
+                    mapLink: document.getElementById('mapLink')
+                };
+            }
+
+            bindEvents() {
+                this.elements.getCurrentBtn.addEventListener('click', () => this.getCurrentLocation());
+                this.elements.watchBtn.addEventListener('click', () => this.startWatching());
+                this.elements.stopBtn.addEventListener('click', () => this.stopWatching());
+            }
+
+            checkGeolocationSupport() {
+                if (!navigator.geolocation) {
+                    this.showStatus('Geolocation is not supported by this browser.', 'error');
+                    this.elements.getCurrentBtn.disabled = true;
+                    this.elements.watchBtn.disabled = true;
+                } else {
+                    this.showStatus('Geolocation is supported. Ready to capture location.', 'success');
+                }
+            }
+
+            getGeolocationOptions() {
+                return {
+                    enableHighAccuracy: this.elements.highAccuracy.checked,
+                    timeout: this.elements.enableTimeout.checked ? 15000 : undefined,
+                    maximumAge: this.elements.maxAge.checked ? 60000 : 0
+                };
+            }
+
+            showProgress() {
+                this.elements.progressBar.style.display = 'block';
+                this.elements.progressFill.style.width = '0%';
+                
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 5;
+                    this.elements.progressFill.style.width = progress + '%';
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            this.elements.progressBar.style.display = 'none';
+                        }, 500);
+                    }
+                }, 100);
+            }
+
+            getCurrentLocation() {
+                this.showStatus('🔍 Acquiring location using GPS, WiFi, and Cell Tower triangulation...', 'loading');
+                this.showProgress();
+                
+                const options = this.getGeolocationOptions();
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => this.handleSuccess(position),
+                    (error) => this.handleError(error),
+                    options
+                );
+            }
+
+            startWatching() {
+                this.showStatus('🎯 Continuously tracking location...', 'loading');
+                this.elements.watchBtn.style.display = 'none';
+                this.elements.stopBtn.style.display = 'inline-block';
+                this.elements.getCurrentBtn.disabled = true;
+                
+                const options = this.getGeolocationOptions();
+                
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.handleSuccess(position),
+                    (error) => this.handleError(error),
+                    options
+                );
+            }
+
+            stopWatching() {
+                if (this.watchId !== null) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                
+                this.elements.watchBtn.style.display = 'inline-block';
+                this.elements.stopBtn.style.display = 'none';
+                this.elements.getCurrentBtn.disabled = false;
+                
+                this.showStatus('📍 Location tracking stopped.', 'success');
+            }
+
+            handleSuccess(position) {
+                const coords = position.coords;
+                const timestamp = new Date(position.timestamp);
+                
+                this.showStatus('✅ Location captured successfully!', 'success');
+                this.displayLocationData(coords, timestamp);
+                this.elements.locationInfo.style.display = 'block';
+            }
+
+            handleError(error) {
+                let errorMessage;
+                
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "❌ Location access denied. Please allow location permissions.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "❌ Location information unavailable. GPS/WiFi/Cell signal may be weak.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "❌ Location request timed out. Try again or disable timeout option.";
+                        break;
+                    default:
+                        errorMessage = "❌ An unknown error occurred while retrieving location.";
+                        break;
+                }
+                
+                this.showStatus(errorMessage, 'error');
+                this.elements.progressBar.style.display = 'none';
+            }
+
+            displayLocationData(coords, timestamp) {
+                // Basic coordinates
+                this.elements.latitude.textContent = coords.latitude.toFixed(8);
+                this.elements.longitude.textContent = coords.longitude.toFixed(8);
+                
+                // Accuracy with indicator
+                const accuracy = coords.accuracy;
+                this.elements.accuracy.textContent = accuracy.toFixed(2) + ' meters';
+                
+                // Accuracy indicator
+                const indicator = this.elements.accuracyIndicator;
+                if (accuracy <= 10) {
+                    indicator.textContent = 'HIGH';
+                    indicator.className = 'accuracy-indicator accuracy-high';
+                } else if (accuracy <= 100) {
+                    indicator.textContent = 'MEDIUM';
+                    indicator.className = 'accuracy-indicator accuracy-medium';
+                } else {
+                    indicator.textContent = 'LOW';
+                    indicator.className = 'accuracy-indicator accuracy-low';
+                }
+                
+                // Altitude
+                this.elements.altitude.textContent = coords.altitude !== null 
+                    ? coords.altitude.toFixed(2) + ' meters' 
+                    : 'Not available';
+                
+                // Altitude accuracy
+                this.elements.altitudeAccuracy.textContent = coords.altitudeAccuracy !== null 
+                    ? coords.altitudeAccuracy.toFixed(2) + ' meters' 
+                    : 'Not available';
+                
+                // Heading
+                this.elements.heading.textContent = coords.heading !== null 
+                    ? coords.heading.toFixed(2) + '°' 
+                    : 'Not available';
+                
+                // Speed
+                this.elements.speed.textContent = coords.speed !== null 
+                    ? (coords.speed * 3.6).toFixed(2) + ' km/h' 
+                    : 'Not available';
+                
+                // Timestamp
+                this.elements.timestamp.textContent = timestamp.toLocaleString();
+                
+                // Google Maps link
+                const mapsUrl = `https://www.google.com/maps?q=${coords.latitude},${coords.longitude}&z=18`;
+                this.elements.mapLink.href = mapsUrl;
+            }
+
+            showStatus(message, type) {
+                this.elements.status.textContent = message;
+                this.elements.status.className = `status ${type}`;
+                this.elements.status.style.display = 'block';
+                
+                // Auto-hide success messages after 5 seconds
+                if (type === 'success') {
+                    setTimeout(() => {
+                        this.elements.status.style.display = 'none';
+                    }, 5000);
+                }
+            }
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new GeolocationCapture();
+        });
+    </script>
+</body>
+</html>
